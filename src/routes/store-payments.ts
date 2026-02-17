@@ -56,7 +56,10 @@ export async function verifyPayment(req: Request, res: Response): Promise<void> 
   );
 
   try {
-    await createShiprocketOrder(orderId);
+    const result = await createShiprocketOrder(orderId);
+    if (!result.success) {
+      console.error("Shiprocket order creation failed:", result.error);
+    }
   } catch (err) {
     console.error("Shiprocket order creation failed (non-blocking):", err);
   }
