@@ -21,6 +21,20 @@ export async function listStoreProductCategories(
   const items = await Promise.all(
     rawItems.map((r) => sanitizeCategoryImage(db, r as CategoryDoc))
   );
+  const categoryIds = items.map((r) => r._id.toString());
+  const productCounts =
+    categoryIds.length > 0
+      ? await db
+          .collection("product")
+          .aggregate<{ _id: string; count: number }>([
+            { $match: { categoryId: { $in: categoryIds } } },
+            { $group: { _id: "$categoryId", count: { $sum: 1 } } },
+          ])
+          .toArray()
+      : [];
+  const countMap = Object.fromEntries(
+    productCounts.map((c) => [c._id, c.count])
+  );
   res.json(
     items.map((r) => ({
       id: r._id.toString(),
@@ -28,6 +42,7 @@ export async function listStoreProductCategories(
       slug: r.slug,
       description: r.description ?? "",
       image: r.image ?? null,
+      productCount: countMap[r._id.toString()] ?? 0,
       createdAt: r.createdAt,
       updatedAt: r.updatedAt,
     }))
