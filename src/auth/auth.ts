@@ -10,16 +10,31 @@ import { firstUserSuperAdmin } from "./first-user-super-admin.js";
 
 const client = getMongoClient();
 
+const isProduction = env.NODE_ENV === "production";
+
+const trustedOrigins = [
+  env.FRONTEND_URL,
+  ...(env.FRONTEND_USER_URL ? [env.FRONTEND_USER_URL] : []),
+  ...(env.TRUSTED_ORIGINS
+    ? env.TRUSTED_ORIGINS.split(",").map((o) => o.trim()).filter(Boolean)
+    : []),
+];
+
 export const auth = betterAuth({
   secret: env.BETTER_AUTH_SECRET,
   baseURL: env.BETTER_AUTH_URL,
-  trustedOrigins: [
-    env.FRONTEND_URL,
-    ...(env.FRONTEND_USER_URL ? [env.FRONTEND_USER_URL] : []),
-    ...(env.TRUSTED_ORIGINS
-      ? env.TRUSTED_ORIGINS.split(",").map((o) => o.trim()).filter(Boolean)
-      : []),
-  ],
+  trustedOrigins,
+
+  advanced: {
+    useSecureCookies: isProduction,
+    defaultCookieAttributes: isProduction
+      ? { sameSite: "none", secure: true }
+      : undefined,
+    crossSubDomainCookies:
+      isProduction && env.COOKIE_DOMAIN
+        ? { enabled: true, domain: env.COOKIE_DOMAIN }
+        : undefined,
+  },
 
   database: mongodbAdapter(getDb(), { client }),
 

@@ -10,6 +10,8 @@ const envSchema = z.object({
   FRONTEND_USER_URL: z.string().url().optional(),
   /** Comma-separated list of additional trusted origins (e.g. "https://admin.eatmilay.com,https://eatmilay.com") */
   TRUSTED_ORIGINS: z.string().optional(),
+  /** Root domain for cross-subdomain cookies in production (e.g. ".eatmilay.com") */
+  COOKIE_DOMAIN: z.string().optional(),
   MONGODB_URI: z.string().url(),
   SMTP_HOST: z.string().default("smtp.ethereal.email"),
   SMTP_PORT: z.coerce.number().default(587),
