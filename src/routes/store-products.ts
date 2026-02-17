@@ -178,6 +178,8 @@ export async function getStoreProductBySlug(
     name: item.name,
     slug: item.slug,
     description: item.description ?? "",
+    nutrients: item.nutrients ?? "",
+    benefits: item.benefits ?? "",
     shortDescription: item.shortDescription ?? "",
     categoryId: item.categoryId ?? null,
     categoryName,
