@@ -31,7 +31,7 @@ export const auth = betterAuth({
       ? { sameSite: "none", secure: true }
       : undefined,
     crossSubDomainCookies:
-      isProduction && env.COOKIE_DOMAIN
+      isProduction && env.COOKIE_DOMAIN && !env.USE_AUTH_PROXY
         ? { enabled: true, domain: env.COOKIE_DOMAIN }
         : undefined,
   },

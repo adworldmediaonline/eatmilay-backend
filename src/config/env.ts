@@ -10,8 +10,14 @@ const envSchema = z.object({
   FRONTEND_USER_URL: z.string().url().optional(),
   /** Comma-separated list of additional trusted origins (e.g. "https://admin.eatmilay.com,https://eatmilay.com") */
   TRUSTED_ORIGINS: z.string().optional(),
-  /** Root domain for cross-subdomain cookies in production (e.g. ".eatmilay.com") */
+  /** Root domain for cross-subdomain cookies in production (e.g. ".eatmilay.com"). Disable when using auth proxy. */
   COOKIE_DOMAIN: z.string().optional(),
+  /** When true, auth is proxied through frontend/admin; do not set cookie Domain so cookies are first-party. */
+  USE_AUTH_PROXY: z
+    .string()
+    .optional()
+    .default("false")
+    .transform((v) => v === "true"),
   MONGODB_URI: z.string().url(),
   SMTP_HOST: z.string().default("smtp.ethereal.email"),
   SMTP_PORT: z.coerce.number().default(587),
