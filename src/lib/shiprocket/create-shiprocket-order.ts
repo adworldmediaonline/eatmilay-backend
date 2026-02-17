@@ -90,6 +90,7 @@ export async function createShiprocketOrder(
         notes: order.notes ? `${order.notes}\n\n${shiprocketNotes}` : shiprocketNotes,
         updatedAt: new Date(),
       },
+      $unset: { shiprocketError: 1, shiprocketErrorAt: 1 },
     }
   );
 

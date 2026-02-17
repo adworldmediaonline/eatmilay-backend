@@ -58,10 +58,38 @@ export async function verifyPayment(req: Request, res: Response): Promise<void> 
   try {
     const result = await createShiprocketOrder(orderId);
     if (!result.success) {
-      console.error("Shiprocket order creation failed:", result.error);
+      const errMsg = `Order ${orderId} (${order.orderNumber}): ${result.error}`;
+      console.error("Shiprocket order creation failed:", errMsg);
+      await db.collection(COLLECTION).updateOne(
+        { _id: objectId },
+        {
+          $set: {
+            shiprocketError: result.error,
+            shiprocketErrorAt: new Date(),
+            updatedAt: new Date(),
+          },
+        }
+      );
+    } else {
+      console.log(`Shiprocket order created for ${order.orderNumber} (orderId: ${orderId})`);
     }
   } catch (err) {
-    console.error("Shiprocket order creation failed (non-blocking):", err);
+    const errMsg = err instanceof Error ? err.message : String(err);
+    console.error("Shiprocket order creation failed (non-blocking):", {
+      orderId,
+      orderNumber: order.orderNumber,
+      error: errMsg,
+    });
+    await db.collection(COLLECTION).updateOne(
+      { _id: objectId },
+      {
+        $set: {
+          shiprocketError: errMsg,
+          shiprocketErrorAt: new Date(),
+          updatedAt: new Date(),
+        },
+      }
+    ).catch(() => {});
   }
 
   res.json({

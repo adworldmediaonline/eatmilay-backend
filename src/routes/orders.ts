@@ -86,6 +86,7 @@ export async function listOrders(
       estimatedDelivery: r.estimatedDelivery ?? null,
       trackingNumber: r.trackingNumber ?? null,
       shiprocketShipmentId: r.shiprocketShipmentId ?? null,
+      shiprocketError: r.shiprocketError ?? null,
     }))
   );
 }
@@ -134,6 +135,8 @@ export async function getOrder(
     estimatedDelivery: item.estimatedDelivery ?? null,
     trackingNumber: item.trackingNumber ?? null,
     shiprocketShipmentId: item.shiprocketShipmentId ?? null,
+    shiprocketError: item.shiprocketError ?? null,
+    shiprocketErrorAt: item.shiprocketErrorAt ?? null,
   });
 }
 
