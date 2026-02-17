@@ -8,6 +8,8 @@ const envSchema = z.object({
   BETTER_AUTH_URL: z.string().url(),
   FRONTEND_URL: z.string().url(),
   FRONTEND_USER_URL: z.string().url().optional(),
+  /** Comma-separated list of additional trusted origins (e.g. "https://admin.eatmilay.com,https://eatmilay.com") */
+  TRUSTED_ORIGINS: z.string().optional(),
   MONGODB_URI: z.string().url(),
   SMTP_HOST: z.string().default("smtp.ethereal.email"),
   SMTP_PORT: z.coerce.number().default(587),

@@ -11,13 +11,17 @@ import { configureCloudinary } from "./routes/upload.js";
 const app = express();
 const port = env.PORT;
 
-const allowedOrigins = env.FRONTEND_USER_URL
-  ? [env.FRONTEND_URL, env.FRONTEND_USER_URL]
-  : [];
+const allowedOrigins = [
+  env.FRONTEND_URL,
+  ...(env.FRONTEND_USER_URL ? [env.FRONTEND_USER_URL] : []),
+  ...(env.TRUSTED_ORIGINS
+    ? env.TRUSTED_ORIGINS.split(",").map((o) => o.trim()).filter(Boolean)
+    : []),
+];
 
 app.use(
   cors({
-    origin: allowedOrigins.length > 0 ? allowedOrigins : env.FRONTEND_URL,
+    origin: allowedOrigins,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
     credentials: true,
   })

@@ -13,9 +13,13 @@ const client = getMongoClient();
 export const auth = betterAuth({
   secret: env.BETTER_AUTH_SECRET,
   baseURL: env.BETTER_AUTH_URL,
-  trustedOrigins: env.FRONTEND_USER_URL
-    ? [env.FRONTEND_URL, env.FRONTEND_USER_URL]
-    : [env.FRONTEND_URL],
+  trustedOrigins: [
+    env.FRONTEND_URL,
+    ...(env.FRONTEND_USER_URL ? [env.FRONTEND_USER_URL] : []),
+    ...(env.TRUSTED_ORIGINS
+      ? env.TRUSTED_ORIGINS.split(",").map((o) => o.trim()).filter(Boolean)
+      : []),
+  ],
 
   database: mongodbAdapter(getDb(), { client }),
 
