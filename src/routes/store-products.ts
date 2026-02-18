@@ -48,9 +48,7 @@ export async function listStoreProducts(
     .limit(limit)
     .toArray();
 
-  const items = await Promise.all(
-    rawItems.map((r) => sanitizeProductImages(db, r as ProductDoc))
-  );
+  const items = rawItems as ProductDoc[];
 
   const categoryIds = [
     ...new Set(

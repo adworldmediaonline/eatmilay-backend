@@ -2,6 +2,13 @@ import express from "express";
 import cors from "cors";
 import { toNodeHandler } from "better-auth/node";
 import { connectMongo } from "./db/mongodb.js";
+import {
+  ensureProductIndexes,
+  ensureOrderIndexes,
+  ensureCategoryIndexes,
+  ensureCollectionIndexes,
+  ensureDiscountIndexes,
+} from "./db/init-indexes.js";
 import { auth } from "./auth/auth.js";
 import { env } from "./config/env.js";
 import { errorHandler } from "./middleware/error.js";
@@ -38,6 +45,13 @@ app.use(errorHandler);
 
 async function start(): Promise<void> {
   await connectMongo();
+  await Promise.all([
+    ensureProductIndexes(),
+    ensureOrderIndexes(),
+    ensureCategoryIndexes(),
+    ensureCollectionIndexes(),
+    ensureDiscountIndexes(),
+  ]);
   configureCloudinary();
   app.listen(port, () => {
     console.log(`Server running at http://localhost:${port}`);

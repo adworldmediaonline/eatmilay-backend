@@ -8,6 +8,7 @@ import * as userRolesHandlers from "./user-roles.js";
 import * as productCategoriesHandlers from "./product-categories.js";
 import * as productCollectionsHandlers from "./product-collections.js";
 import * as ordersHandlers from "./orders.js";
+import * as ordersExportHandlers from "./orders-export.js";
 import * as discountsHandlers from "./discounts.js";
 import * as productsHandlers from "./products.js";
 import * as uploadHandlers from "./upload.js";
@@ -94,6 +95,9 @@ export function registerRoutes(app: import("express").Application): void {
   app.use("/api/admin/orders", requireSession, requireAdmin);
   app.get("/api/admin/orders", (req, res) =>
     ordersHandlers.listOrders(req as AuthenticatedRequest, res)
+  );
+  app.get("/api/admin/orders/export", (req, res) =>
+    ordersExportHandlers.exportOrders(req as AuthenticatedRequest, res)
   );
   app.post("/api/admin/orders", (req, res) =>
     ordersHandlers.createOrder(req as AuthenticatedRequest, res)
