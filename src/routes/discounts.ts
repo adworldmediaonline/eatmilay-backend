@@ -6,18 +6,37 @@ import type { AuthenticatedRequest } from "../middleware/require-session.js";
 
 const COLLECTION = "discount";
 
-const createSchema = z.object({
+const discountBaseSchema = z.object({
   code: z.string().min(1).max(50),
   type: z.enum(["percentage", "fixed"]),
   value: z.number().min(0),
   productIds: z.array(z.string()).optional(),
   minOrderAmount: z.number().min(0).optional().nullable(),
   maxUsage: z.number().int().min(0).optional().nullable(),
+  startsAt: z.union([z.string(), z.date()]).optional().nullable(),
   expiresAt: z.union([z.string(), z.date()]).optional().nullable(),
-  status: z.enum(["active", "disabled"]).default("active"),
+  status: z.enum(["active", "disabled", "scheduled"]).default("active"),
 });
 
-const updateSchema = createSchema.partial();
+const createSchema = discountBaseSchema.refine(
+  (data) => {
+    const start = data.startsAt ? new Date(data.startsAt) : null;
+    const end = data.expiresAt ? new Date(data.expiresAt) : null;
+    if (start && end && start >= end) return false;
+    return true;
+  },
+  { message: "startsAt must be before expiresAt", path: ["expiresAt"] }
+);
+
+const updateSchema = discountBaseSchema.partial().refine(
+  (data) => {
+    const start = data.startsAt ? new Date(data.startsAt) : null;
+    const end = data.expiresAt ? new Date(data.expiresAt) : null;
+    if (start && end && start >= end) return false;
+    return true;
+  },
+  { message: "startsAt must be before expiresAt", path: ["expiresAt"] }
+);
 
 function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -55,7 +74,7 @@ export async function listDiscounts(
   const offset = Math.max(0, parseInt(offsetRaw ?? "0", 10) || 0);
 
   const filter: Record<string, unknown> = {};
-  if (status && ["active", "disabled"].includes(status)) {
+  if (status && ["active", "disabled", "scheduled"].includes(status)) {
     filter.status = status;
   }
   if (search && search.length > 0) {
@@ -79,20 +98,36 @@ export async function listDiscounts(
   ]);
 
   res.json({
-    items: items.map((r) => ({
-      id: r._id.toString(),
-      code: r.code,
-      type: r.type,
-      value: r.value,
-      productIds: r.productIds ?? [],
-      minOrderAmount: r.minOrderAmount ?? null,
-      maxUsage: r.maxUsage ?? null,
-      usedCount: r.usedCount ?? 0,
-      expiresAt: r.expiresAt ?? null,
-      status: r.status ?? "active",
-      createdAt: r.createdAt,
-      updatedAt: r.updatedAt,
-    })),
+    items: items.map((r) => {
+      const statusVal = r.status ?? "active";
+      const startsAt = r.startsAt ?? null;
+      const expiresAt = r.expiresAt ?? null;
+      const now = new Date();
+      let effectiveStatus = statusVal;
+      if (statusVal === "active" && expiresAt && new Date(expiresAt) < now) {
+        effectiveStatus = "expired";
+      } else if (statusVal === "scheduled" && startsAt && new Date(startsAt) > now) {
+        effectiveStatus = "scheduled";
+      } else if (statusVal === "scheduled" && (!startsAt || new Date(startsAt) <= now)) {
+        effectiveStatus = "active";
+      }
+      return {
+        id: r._id.toString(),
+        code: r.code,
+        type: r.type,
+        value: r.value,
+        productIds: r.productIds ?? [],
+        minOrderAmount: r.minOrderAmount ?? null,
+        maxUsage: r.maxUsage ?? null,
+        usedCount: r.usedCount ?? 0,
+        startsAt: r.startsAt ?? null,
+        expiresAt: r.expiresAt ?? null,
+        status: statusVal,
+        effectiveStatus,
+        createdAt: r.createdAt,
+        updatedAt: r.updatedAt,
+      };
+    }),
     total,
   });
 }
@@ -117,6 +152,19 @@ export async function getDiscount(
     return;
   }
 
+  const statusVal = item.status ?? "active";
+  const startsAt = item.startsAt ?? null;
+  const expiresAt = item.expiresAt ?? null;
+  const now = new Date();
+  let effectiveStatus = statusVal;
+  if (statusVal === "active" && expiresAt && new Date(expiresAt) < now) {
+    effectiveStatus = "expired";
+  } else if (statusVal === "scheduled" && startsAt && new Date(startsAt) > now) {
+    effectiveStatus = "scheduled";
+  } else if (statusVal === "scheduled" && (!startsAt || new Date(startsAt) <= now)) {
+    effectiveStatus = "active";
+  }
+
   res.json({
     id: item._id.toString(),
     code: item.code,
@@ -126,8 +174,10 @@ export async function getDiscount(
     minOrderAmount: item.minOrderAmount ?? null,
     maxUsage: item.maxUsage ?? null,
     usedCount: item.usedCount ?? 0,
+    startsAt: item.startsAt ?? null,
     expiresAt: item.expiresAt ?? null,
-    status: item.status ?? "active",
+    status: statusVal,
+    effectiveStatus,
     createdAt: item.createdAt,
     updatedAt: item.updatedAt,
   });
@@ -157,9 +207,18 @@ export async function createDiscount(
   const productIds = (parsed.data.productIds ?? []).filter((id) =>
     ObjectId.isValid(id)
   );
+  const startsAt = parsed.data.startsAt
+    ? new Date(parsed.data.startsAt)
+    : null;
   const expiresAt = parsed.data.expiresAt
     ? new Date(parsed.data.expiresAt)
     : null;
+
+  const now = new Date();
+  let status = parsed.data.status ?? "active";
+  if (status === "active" && startsAt && startsAt > now) {
+    status = "scheduled";
+  }
 
   const doc = {
     code,
@@ -169,8 +228,9 @@ export async function createDiscount(
     minOrderAmount: parsed.data.minOrderAmount ?? null,
     maxUsage: parsed.data.maxUsage ?? null,
     usedCount: 0,
+    startsAt,
     expiresAt,
-    status: parsed.data.status ?? "active",
+    status,
     createdAt: new Date(),
     updatedAt: new Date(),
   };
@@ -179,6 +239,7 @@ export async function createDiscount(
   res.status(201).json({
     id: result.insertedId.toString(),
     ...doc,
+    startsAt: doc.startsAt?.toISOString() ?? null,
     expiresAt: doc.expiresAt?.toISOString() ?? null,
   });
 }
@@ -224,10 +285,24 @@ export async function updateDiscount(
     );
   }
 
+  if ("startsAt" in parsed.data) {
+    update.startsAt = parsed.data.startsAt
+      ? new Date(parsed.data.startsAt)
+      : null;
+  }
   if ("expiresAt" in parsed.data) {
     update.expiresAt = parsed.data.expiresAt
       ? new Date(parsed.data.expiresAt)
       : null;
+  }
+
+  const startsAtVal = update.startsAt as Date | undefined;
+  if (
+    parsed.data.status !== "disabled" &&
+    startsAtVal &&
+    new Date(startsAtVal) > new Date()
+  ) {
+    update.status = "scheduled";
   }
 
   const result = await db.collection(COLLECTION).findOneAndUpdate(
@@ -241,6 +316,19 @@ export async function updateDiscount(
     return;
   }
 
+  const statusVal = result.status ?? "active";
+  const itemStartsAt = result.startsAt ?? null;
+  const itemExpiresAt = result.expiresAt ?? null;
+  const itemNow = new Date();
+  let effectiveStatus = statusVal;
+  if (statusVal === "active" && itemExpiresAt && new Date(itemExpiresAt) < itemNow) {
+    effectiveStatus = "expired";
+  } else if (statusVal === "scheduled" && itemStartsAt && new Date(itemStartsAt) > itemNow) {
+    effectiveStatus = "scheduled";
+  } else if (statusVal === "scheduled" && (!itemStartsAt || new Date(itemStartsAt) <= itemNow)) {
+    effectiveStatus = "active";
+  }
+
   res.json({
     id: result._id.toString(),
     code: result.code,
@@ -250,8 +338,10 @@ export async function updateDiscount(
     minOrderAmount: result.minOrderAmount ?? null,
     maxUsage: result.maxUsage ?? null,
     usedCount: result.usedCount ?? 0,
+    startsAt: result.startsAt?.toISOString() ?? null,
     expiresAt: result.expiresAt?.toISOString() ?? null,
-    status: result.status ?? "active",
+    status: statusVal,
+    effectiveStatus,
     createdAt: result.createdAt,
     updatedAt: result.updatedAt,
   });

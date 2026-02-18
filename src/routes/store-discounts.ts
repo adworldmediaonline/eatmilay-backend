@@ -43,13 +43,29 @@ export async function validateStoreDiscount(
   }
 
   const status = discount.status ?? "active";
-  if (status !== "active") {
+  const startsAt = discount.startsAt as Date | null | undefined;
+  const now = new Date();
+
+  if (status === "disabled") {
     res.json({ valid: false, message: "This coupon is no longer active" });
     return;
   }
 
+  if (status === "scheduled") {
+    if (startsAt && new Date(startsAt) > now) {
+      res.json({ valid: false, message: "This coupon is not yet active" });
+      return;
+    }
+    // startsAt passed or null — treat as effectively active
+  }
+
+  if (startsAt && new Date(startsAt) > now) {
+    res.json({ valid: false, message: "This coupon is not yet active" });
+    return;
+  }
+
   const expiresAt = discount.expiresAt as Date | null | undefined;
-  if (expiresAt && new Date(expiresAt) < new Date()) {
+  if (expiresAt && new Date(expiresAt) < now) {
     res.json({ valid: false, message: "This coupon has expired" });
     return;
   }
