@@ -51,6 +51,8 @@ export async function listOrders(
   const status = req.query.status as string | undefined;
   const paymentStatus = req.query.paymentStatus as string | undefined;
   const search = (req.query.search as string | undefined)?.trim();
+  const startDate = req.query.startDate as string | undefined;
+  const endDate = req.query.endDate as string | undefined;
   const sortByRaw = req.query.sortBy as string | undefined;
   const sortOrderRaw = req.query.sortOrder as string | undefined;
   const limitRaw = req.query.limit as string | undefined;
@@ -73,6 +75,13 @@ export async function listOrders(
   const offset = Math.max(0, parseInt(offsetRaw ?? "0", 10) || 0);
 
   const filter: Record<string, unknown> = {};
+  if (startDate && endDate) {
+    const start = new Date(startDate + "T00:00:00.000Z");
+    const end = new Date(endDate + "T23:59:59.999Z");
+    if (!isNaN(start.getTime()) && !isNaN(end.getTime()) && start <= end) {
+      filter.createdAt = { $gte: start, $lte: end };
+    }
+  }
   if (status && ["pending", "paid", "shipped", "cancelled", "confirmed", "processing", "delivered"].includes(status)) {
     filter.status = status;
   }
