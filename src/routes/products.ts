@@ -101,6 +101,13 @@ const createSchema = productBaseSchema.refine(
 
 const updateSchema = productBaseSchema.partial();
 
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+const SORT_FIELDS = ["name", "price", "updatedAt", "stockQuantity"] as const;
+const SORT_ORDERS = ["asc", "desc"] as const;
+
 export async function listProducts(
   req: AuthenticatedRequest,
   res: Response
@@ -108,18 +115,52 @@ export async function listProducts(
   const db = getDb();
   const status = req.query.status as string | undefined;
   const categoryId = req.query.categoryId as string | undefined;
+  const search = (req.query.search as string | undefined)?.trim();
+  const sortByRaw = req.query.sortBy as string | undefined;
+  const sortOrderRaw = req.query.sortOrder as string | undefined;
+  const limitRaw = req.query.limit as string | undefined;
+  const offsetRaw = req.query.offset as string | undefined;
+
+  const sortBy: (typeof SORT_FIELDS)[number] = SORT_FIELDS.includes(
+    sortByRaw as (typeof SORT_FIELDS)[number]
+  )
+    ? (sortByRaw as (typeof SORT_FIELDS)[number])
+    : "updatedAt";
+  const sortOrder: (typeof SORT_ORDERS)[number] = SORT_ORDERS.includes(
+    sortOrderRaw as (typeof SORT_ORDERS)[number]
+  )
+    ? (sortOrderRaw as (typeof SORT_ORDERS)[number])
+    : "desc";
+  const limit = Math.min(
+    Math.max(1, parseInt(limitRaw ?? "20", 10) || 20),
+    100
+  );
+  const offset = Math.max(0, parseInt(offsetRaw ?? "0", 10) || 0);
 
   const filter: Record<string, unknown> = {};
   if (status) filter.status = status;
   if (categoryId && ObjectId.isValid(categoryId)) {
     filter.categoryId = categoryId;
   }
+  if (search && search.length > 0) {
+    const pattern = escapeRegex(search);
+    const regex = { $regex: pattern, $options: "i" };
+    filter.$or = [{ name: regex }, { slug: regex }, { sku: regex }];
+  }
 
-  const rawItems = await db
-    .collection(COLLECTION)
-    .find(filter)
-    .sort({ updatedAt: -1 })
-    .toArray();
+  const sortDir = sortOrder === "asc" ? 1 : -1;
+  const sortObj: Record<string, 1 | -1> = { [sortBy]: sortDir };
+
+  const [total, rawItems] = await Promise.all([
+    db.collection(COLLECTION).countDocuments(filter),
+    db
+      .collection(COLLECTION)
+      .find(filter)
+      .sort(sortObj)
+      .skip(offset)
+      .limit(limit)
+      .toArray(),
+  ]);
 
   const items = await Promise.all(
     rawItems.map((r) => sanitizeProductImages(db, r as ProductDoc))
@@ -143,8 +184,8 @@ export async function listProducts(
     categories.map((c) => [c._id.toString(), c.name as string])
   );
 
-  res.json(
-    items.map((r: ProductDoc) => ({
+  res.json({
+    items: items.map((r: ProductDoc) => ({
       id: r._id.toString(),
       name: r.name,
       slug: r.slug,
@@ -178,8 +219,9 @@ export async function listProducts(
       relatedProductIds: r.relatedProductIds ?? [],
       createdAt: r.createdAt,
       updatedAt: r.updatedAt,
-    }))
-  );
+    })),
+    total,
+  });
 }
 
 export async function createProduct(
