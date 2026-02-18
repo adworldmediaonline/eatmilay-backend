@@ -28,21 +28,65 @@ const createSchema = z.object({
 
 const updateSchema = createSchema.partial();
 
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+const CATEGORY_SORT_FIELDS = ["name", "slug", "createdAt", "updatedAt"] as const;
+const SORT_ORDERS = ["asc", "desc"] as const;
+
 export async function listProductCategories(
   req: AuthenticatedRequest,
   res: Response
 ): Promise<void> {
   const db = getDb();
-  const rawItems = await db
-    .collection(COLLECTION)
-    .find({})
-    .sort({ createdAt: -1 })
-    .toArray();
-  const items = await Promise.all(
-    rawItems.map((r) => sanitizeCategoryImage(db, r as CategoryDoc))
+  const search = (req.query.search as string | undefined)?.trim();
+  const sortByRaw = req.query.sortBy as string | undefined;
+  const sortOrderRaw = req.query.sortOrder as string | undefined;
+  const limitRaw = req.query.limit as string | undefined;
+  const offsetRaw = req.query.offset as string | undefined;
+
+  const sortBy: (typeof CATEGORY_SORT_FIELDS)[number] = CATEGORY_SORT_FIELDS.includes(
+    sortByRaw as (typeof CATEGORY_SORT_FIELDS)[number]
+  )
+    ? (sortByRaw as (typeof CATEGORY_SORT_FIELDS)[number])
+    : "createdAt";
+  const sortOrder: (typeof SORT_ORDERS)[number] = SORT_ORDERS.includes(
+    sortOrderRaw as (typeof SORT_ORDERS)[number]
+  )
+    ? (sortOrderRaw as (typeof SORT_ORDERS)[number])
+    : "desc";
+  const limit = Math.min(
+    Math.max(1, parseInt(limitRaw ?? "20", 10) || 20),
+    100
   );
-  res.json(
-    items.map((r) => ({
+  const offset = Math.max(0, parseInt(offsetRaw ?? "0", 10) || 0);
+
+  const filter: Record<string, unknown> = {};
+  if (search && search.length > 0) {
+    const pattern = escapeRegex(search);
+    const regex = { $regex: pattern, $options: "i" };
+    filter.$or = [{ name: regex }, { slug: regex }];
+  }
+
+  const sortDir = sortOrder === "asc" ? 1 : -1;
+  const sortObj: Record<string, 1 | -1> = { [sortBy]: sortDir };
+
+  const [total, rawItems] = await Promise.all([
+    db.collection(COLLECTION).countDocuments(filter),
+    db
+      .collection(COLLECTION)
+      .find(filter)
+      .sort(sortObj)
+      .skip(offset)
+      .limit(limit)
+      .toArray(),
+  ]);
+
+  const items = rawItems as CategoryDoc[];
+
+  res.json({
+    items: items.map((r) => ({
       id: r._id.toString(),
       name: r.name,
       slug: r.slug,
@@ -50,8 +94,9 @@ export async function listProductCategories(
       image: r.image ?? null,
       createdAt: r.createdAt,
       updatedAt: r.updatedAt,
-    }))
-  );
+    })),
+    total,
+  });
 }
 
 export async function createProductCategory(

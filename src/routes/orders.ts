@@ -36,6 +36,13 @@ const updateSchema = z.object({
   notes: z.string().max(1000).optional().nullable(),
 });
 
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+const ORDER_SORT_FIELDS = ["orderNumber", "createdAt", "total", "status"] as const;
+const SORT_ORDERS = ["asc", "desc"] as const;
+
 export async function listOrders(
   req: AuthenticatedRequest,
   res: Response
@@ -43,6 +50,27 @@ export async function listOrders(
   const db = getDb();
   const status = req.query.status as string | undefined;
   const paymentStatus = req.query.paymentStatus as string | undefined;
+  const search = (req.query.search as string | undefined)?.trim();
+  const sortByRaw = req.query.sortBy as string | undefined;
+  const sortOrderRaw = req.query.sortOrder as string | undefined;
+  const limitRaw = req.query.limit as string | undefined;
+  const offsetRaw = req.query.offset as string | undefined;
+
+  const sortBy: (typeof ORDER_SORT_FIELDS)[number] = ORDER_SORT_FIELDS.includes(
+    sortByRaw as (typeof ORDER_SORT_FIELDS)[number]
+  )
+    ? (sortByRaw as (typeof ORDER_SORT_FIELDS)[number])
+    : "createdAt";
+  const sortOrder: (typeof SORT_ORDERS)[number] = SORT_ORDERS.includes(
+    sortOrderRaw as (typeof SORT_ORDERS)[number]
+  )
+    ? (sortOrderRaw as (typeof SORT_ORDERS)[number])
+    : "desc";
+  const limit = Math.min(
+    Math.max(1, parseInt(limitRaw ?? "20", 10) || 20),
+    100
+  );
+  const offset = Math.max(0, parseInt(offsetRaw ?? "0", 10) || 0);
 
   const filter: Record<string, unknown> = {};
   if (status && ["pending", "paid", "shipped", "cancelled", "confirmed", "processing", "delivered"].includes(status)) {
@@ -51,15 +79,32 @@ export async function listOrders(
   if (paymentStatus && ["pending", "completed", "failed"].includes(paymentStatus)) {
     filter.paymentStatus = paymentStatus;
   }
+  if (search && search.length > 0) {
+    const pattern = escapeRegex(search);
+    const regex = { $regex: pattern, $options: "i" };
+    filter.$or = [
+      { orderNumber: regex },
+      { customerEmail: regex },
+      { customerName: regex },
+    ];
+  }
 
-  const items = await db
-    .collection(COLLECTION)
-    .find(filter)
-    .sort({ createdAt: -1 })
-    .toArray();
+  const sortDir = sortOrder === "asc" ? 1 : -1;
+  const sortObj: Record<string, 1 | -1> = { [sortBy]: sortDir };
 
-  res.json(
-    items.map((r) => ({
+  const [total, items] = await Promise.all([
+    db.collection(COLLECTION).countDocuments(filter),
+    db
+      .collection(COLLECTION)
+      .find(filter)
+      .sort(sortObj)
+      .skip(offset)
+      .limit(limit)
+      .toArray(),
+  ]);
+
+  res.json({
+    items: items.map((r) => ({
       id: r._id.toString(),
       orderNumber: r.orderNumber,
       customerId: r.customerId ?? null,
@@ -84,8 +129,9 @@ export async function listOrders(
       trackingNumber: r.trackingNumber ?? null,
       shiprocketShipmentId: r.shiprocketShipmentId ?? null,
       shiprocketError: r.shiprocketError ?? null,
-    }))
-  );
+    })),
+    total,
+  });
 }
 
 export async function getOrder(

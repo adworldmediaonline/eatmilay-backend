@@ -19,19 +19,67 @@ const createSchema = z.object({
 
 const updateSchema = createSchema.partial();
 
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+const DISCOUNT_SORT_FIELDS = ["code", "createdAt", "updatedAt", "status"] as const;
+const SORT_ORDERS = ["asc", "desc"] as const;
+
 export async function listDiscounts(
   req: AuthenticatedRequest,
   res: Response
 ): Promise<void> {
   const db = getDb();
-  const items = await db
-    .collection(COLLECTION)
-    .find({})
-    .sort({ createdAt: -1 })
-    .toArray();
+  const status = req.query.status as string | undefined;
+  const search = (req.query.search as string | undefined)?.trim();
+  const sortByRaw = req.query.sortBy as string | undefined;
+  const sortOrderRaw = req.query.sortOrder as string | undefined;
+  const limitRaw = req.query.limit as string | undefined;
+  const offsetRaw = req.query.offset as string | undefined;
 
-  res.json(
-    items.map((r) => ({
+  const sortBy: (typeof DISCOUNT_SORT_FIELDS)[number] = DISCOUNT_SORT_FIELDS.includes(
+    sortByRaw as (typeof DISCOUNT_SORT_FIELDS)[number]
+  )
+    ? (sortByRaw as (typeof DISCOUNT_SORT_FIELDS)[number])
+    : "createdAt";
+  const sortOrder: (typeof SORT_ORDERS)[number] = SORT_ORDERS.includes(
+    sortOrderRaw as (typeof SORT_ORDERS)[number]
+  )
+    ? (sortOrderRaw as (typeof SORT_ORDERS)[number])
+    : "desc";
+  const limit = Math.min(
+    Math.max(1, parseInt(limitRaw ?? "20", 10) || 20),
+    100
+  );
+  const offset = Math.max(0, parseInt(offsetRaw ?? "0", 10) || 0);
+
+  const filter: Record<string, unknown> = {};
+  if (status && ["active", "disabled"].includes(status)) {
+    filter.status = status;
+  }
+  if (search && search.length > 0) {
+    const pattern = escapeRegex(search);
+    const regex = { $regex: pattern, $options: "i" };
+    filter.code = regex;
+  }
+
+  const sortDir = sortOrder === "asc" ? 1 : -1;
+  const sortObj: Record<string, 1 | -1> = { [sortBy]: sortDir };
+
+  const [total, items] = await Promise.all([
+    db.collection(COLLECTION).countDocuments(filter),
+    db
+      .collection(COLLECTION)
+      .find(filter)
+      .sort(sortObj)
+      .skip(offset)
+      .limit(limit)
+      .toArray(),
+  ]);
+
+  res.json({
+    items: items.map((r) => ({
       id: r._id.toString(),
       code: r.code,
       type: r.type,
@@ -44,8 +92,9 @@ export async function listDiscounts(
       status: r.status ?? "active",
       createdAt: r.createdAt,
       updatedAt: r.updatedAt,
-    }))
-  );
+    })),
+    total,
+  });
 }
 
 export async function getDiscount(
