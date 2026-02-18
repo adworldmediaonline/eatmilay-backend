@@ -14,6 +14,8 @@ import { env } from "./config/env.js";
 import { errorHandler } from "./middleware/error.js";
 import { registerRoutes } from "./routes/index.js";
 import { configureCloudinary } from "./routes/upload.js";
+import { syncDiscountStatuses } from "./jobs/sync-discount-statuses.js";
+import { startAgenda, stopAgenda } from "./jobs/agenda.js";
 
 const app = express();
 const port = env.PORT;
@@ -53,11 +55,21 @@ async function start(): Promise<void> {
     ensureDiscountIndexes(),
   ]);
   configureCloudinary();
+  await syncDiscountStatuses();
+  await startAgenda();
   app.listen(port, () => {
     console.log(`Server running at http://localhost:${port}`);
     console.log(`Auth endpoint: http://localhost:${port}/api/auth/ok`);
   });
 }
+
+const shutdown = async () => {
+  await stopAgenda();
+  process.exit(0);
+};
+
+process.on("SIGTERM", shutdown);
+process.on("SIGINT", shutdown);
 
 start().catch((err) => {
   console.error("Failed to start server:", err);
