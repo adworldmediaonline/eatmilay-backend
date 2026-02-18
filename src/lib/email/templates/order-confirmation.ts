@@ -74,6 +74,12 @@ export function renderOrderConfirmation(data: OrderEmailData): { html: string; t
 
     <p><strong>Payment method:</strong> ${escapeHtml(paymentLabel)}</p>
     ${data.estimatedDelivery ? `<p><strong>Estimated delivery:</strong> ${escapeHtml(data.estimatedDelivery)}</p>` : ""}
+    ${data.trackingNumber ? `
+    <h3>Track your order</h3>
+    <p>Your order has been shipped. Track your package:</p>
+    <p><strong>Tracking number:</strong> ${escapeHtml(data.trackingNumber)}</p>
+    ${data.trackingUrl ? `<p><a href="${escapeHtml(data.trackingUrl)}" style="color: #2563eb;">Track your package</a></p>` : ""}
+    ` : ""}
   `;
 
   const html = baseLayout({ title: `Order ${data.orderNumber} confirmed`, body });
@@ -99,6 +105,13 @@ export function renderOrderConfirmation(data: OrderEmailData): { html: string; t
     ``,
     `Payment: ${paymentLabel}`,
     ...(data.estimatedDelivery ? [`Estimated delivery: ${data.estimatedDelivery}`] : []),
+    ...(data.trackingNumber
+      ? [
+          ``,
+          `Track your order: ${data.trackingNumber}`,
+          ...(data.trackingUrl ? [`Track: ${data.trackingUrl}`] : []),
+        ]
+      : []),
   ].join("\n");
 
   return { html, text };

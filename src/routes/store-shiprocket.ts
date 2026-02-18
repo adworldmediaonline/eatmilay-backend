@@ -1,8 +1,12 @@
-import type { Request, Response } from "express";
+import type { Response } from "express";
 import { ObjectId } from "mongodb";
 import { getDb } from "../db/mongodb.js";
 import { createShiprocketOrder } from "../lib/shiprocket/create-shiprocket-order.js";
 import { trackShiprocketOrder } from "../lib/shiprocket/shiprocket-tracking.js";
+import {
+  sendOrderShippedEmail,
+  type OrderDoc,
+} from "../lib/email/send-order-confirmation.js";
 import type { AuthenticatedRequest } from "../middleware/require-session.js";
 
 const COLLECTION = "order";
@@ -21,6 +25,25 @@ export async function createShiprocketOrderForAdmin(
   if (!result.success) {
     res.status(400).json({ error: result.error });
     return;
+  }
+
+  const db = getDb();
+  let objectId: ObjectId;
+  try {
+    objectId = new ObjectId(id);
+  } catch {
+    res.json({ success: true, data: result.data });
+    return;
+  }
+
+  const updated = await db.collection(COLLECTION).findOne({ _id: objectId });
+  if (
+    updated &&
+    updated.customerEmail &&
+    updated.shippingAddress &&
+    typeof updated.shippingAddress === "object"
+  ) {
+    void sendOrderShippedEmail(updated as unknown as OrderDoc);
   }
 
   res.json({

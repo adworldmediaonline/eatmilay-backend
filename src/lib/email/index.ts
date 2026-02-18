@@ -4,6 +4,7 @@ export type { SendEmailParams } from "./send-email.js";
 export type { OrderEmailData, OrderItemEmailData, ShippingAddressEmailData } from "./types.js";
 export {
   sendOrderConfirmationEmail,
+  sendOrderShippedEmail,
   type OrderDoc,
 } from "./send-order-confirmation.js";
 export { renderOrderConfirmation } from "./templates/order-confirmation.js";
