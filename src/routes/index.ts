@@ -139,6 +139,9 @@ export function registerRoutes(app: import("express").Application): void {
   app.get("/api/admin/products/slug-available", (req, res) =>
     productsHandlers.checkSlugAvailability(req as AuthenticatedRequest, res)
   );
+  app.post("/api/admin/products/import", (req, res) =>
+    productsHandlers.importProducts(req as AuthenticatedRequest, res)
+  );
   app.post("/api/admin/products", (req, res) =>
     productsHandlers.createProduct(req as AuthenticatedRequest, res)
   );

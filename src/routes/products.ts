@@ -724,3 +724,5 @@ export async function deleteProduct(
 
   res.status(204).send();
 }
+
+export { importProducts } from "./products-import.js";
