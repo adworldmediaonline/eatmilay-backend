@@ -2,6 +2,7 @@ import type { Response } from "express";
 import { ObjectId } from "mongodb";
 import { z } from "zod";
 import { getDb } from "../db/mongodb.js";
+import { getNextOrderNumber } from "../lib/order-number.js";
 import type { AuthenticatedRequest } from "../middleware/require-session.js";
 
 const COLLECTION = "order";
@@ -34,12 +35,6 @@ const updateSchema = z.object({
     .optional(),
   notes: z.string().max(1000).optional().nullable(),
 });
-
-async function getNextOrderNumber(db: ReturnType<typeof getDb>): Promise<string> {
-  const count = await db.collection(COLLECTION).countDocuments();
-  const num = count + 1;
-  return `ORD-${num.toString().padStart(4, "0")}`;
-}
 
 export async function listOrders(
   req: AuthenticatedRequest,
