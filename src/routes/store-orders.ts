@@ -2,6 +2,10 @@ import type { Request, Response } from "express";
 import { getDb } from "../db/mongodb.js";
 import { createOrderSchema } from "../lib/validations/order.js";
 import { createRazorpayOrder } from "../lib/razorpay/razorpay-client.js";
+import {
+  sendOrderConfirmationEmail,
+  type OrderDoc,
+} from "../lib/email/send-order-confirmation.js";
 
 const COLLECTION = "order";
 
@@ -90,6 +94,10 @@ export async function createStoreOrder(req: Request, res: Response): Promise<voi
 
   const result = await db.collection(COLLECTION).insertOne(doc);
   const id = result.insertedId.toString();
+
+  if (paymentMethod === "cod" && status === "paid") {
+    void sendOrderConfirmationEmail(doc as unknown as OrderDoc);
+  }
 
   res.status(201).json({
     id,

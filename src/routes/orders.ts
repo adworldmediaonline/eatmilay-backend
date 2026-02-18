@@ -29,7 +29,9 @@ const createSchema = z.object({
 });
 
 const updateSchema = z.object({
-  status: z.enum(["pending", "paid", "shipped", "cancelled"]).optional(),
+  status: z
+    .enum(["pending", "paid", "confirmed", "processing", "shipped", "delivered", "cancelled"])
+    .optional(),
   notes: z.string().max(1000).optional().nullable(),
 });
 

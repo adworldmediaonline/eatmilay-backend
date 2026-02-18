@@ -3,6 +3,10 @@ import { getDb } from "../db/mongodb.js";
 import { verifyPaymentSchema } from "../lib/validations/order.js";
 import { verifyPaymentSignature } from "../lib/razorpay/razorpay-verify.js";
 import { createShiprocketOrder } from "../lib/shiprocket/create-shiprocket-order.js";
+import {
+  sendOrderConfirmationEmail,
+  type OrderDoc,
+} from "../lib/email/send-order-confirmation.js";
 
 const COLLECTION = "order";
 
@@ -54,6 +58,8 @@ export async function verifyPayment(req: Request, res: Response): Promise<void> 
       },
     }
   );
+
+  void sendOrderConfirmationEmail(order as unknown as OrderDoc);
 
   try {
     const result = await createShiprocketOrder(orderId);
