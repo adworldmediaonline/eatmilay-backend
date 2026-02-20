@@ -68,3 +68,28 @@ export async function ensureDiscountIndexes(): Promise<void> {
     coll.createIndex({ createdAt: -1 }),
   ]);
 }
+
+export async function ensureCartIndexes(): Promise<void> {
+  const db = getDb();
+  const coll = db.collection("cart");
+
+  await Promise.all([
+    coll.createIndex({ customerId: 1 }, { unique: true }),
+    coll.createIndex({ lastUpdated: 1, emailSentAt: 1 }),
+  ]);
+}
+
+/**
+ * Ensure user collection has isAnonymous field for Better Auth anonymous plugin.
+ * Backfill existing users with isAnonymous: false; new anonymous users get true from the plugin.
+ */
+export async function ensureUserSchema(): Promise<void> {
+  const db = getDb();
+  const result = await db.collection("user").updateMany(
+    { isAnonymous: { $exists: false } },
+    { $set: { isAnonymous: false } }
+  );
+  if (result.modifiedCount > 0) {
+    console.log(`[Init] Backfilled isAnonymous for ${result.modifiedCount} user(s)`);
+  }
+}

@@ -119,7 +119,7 @@ export async function listUserOrders(
         status: r.status ?? "pending",
         total: r.total,
         currency: r.currency ?? "INR",
-        itemCount: Array.isArray(r.items) ? (r.items as unknown[]).reduce((s: number, i: { quantity?: number }) => s + (i.quantity ?? 1), 0) : 0,
+        itemCount: Array.isArray(r.items) ? (r.items as Array<{ quantity?: number }>).reduce((s, i) => s + (i.quantity ?? 1), 0) : 0,
         createdAt: r.createdAt,
         trackingNumber: trackingNumber ?? null,
         trackingUrl,

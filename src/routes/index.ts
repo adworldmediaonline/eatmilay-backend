@@ -22,6 +22,7 @@ import * as storeShippingHandlers from "./store-shipping.js";
 import * as storePaymentsHandlers from "./store-payments.js";
 import * as storeShiprocketHandlers from "./store-shiprocket.js";
 import * as storeSettingsHandlers from "./store-settings.js";
+import * as storeCartHandlers from "./store-cart.js";
 import * as adminSettingsHandlers from "./admin-settings.js";
 
 export function registerRoutes(app: import("express").Application): void {
@@ -222,6 +223,12 @@ export function registerRoutes(app: import("express").Application): void {
   );
   app.get("/api/store/settings/shipping", (req, res) =>
     storeSettingsHandlers.getShippingSettings(req, res)
+  );
+  app.put("/api/store/cart", requireSession, (req, res) =>
+    storeCartHandlers.putCart(req as AuthenticatedRequest, res)
+  );
+  app.patch("/api/store/cart/reminder-email", requireSession, (req, res) =>
+    storeCartHandlers.patchReminderEmail(req as AuthenticatedRequest, res)
   );
 
   app.use("/api/admin/settings", requireSession, requireAdmin);

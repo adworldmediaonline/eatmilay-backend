@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
-    "start": "node dist/server.js"
+    "start": "node dist/server.js",
+    "send-abandoned-cart": "tsx src/jobs/run-abandoned-cart-once.ts"
   },
   "dependencies": {
     "@agendajs/mongo-backend": "^3.2.0",

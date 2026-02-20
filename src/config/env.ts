@@ -33,6 +33,12 @@ const envSchema = z.object({
   CLOUDINARY_API_KEY: z.string().optional(),
   CLOUDINARY_API_SECRET: z.string().optional(),
   CLOUDINARY_UPLOAD_PRESET: z.string().optional(),
+  /** Minutes before a cart is considered abandoned. Default 1440 (24h). */
+  ABANDONED_CART_MINUTES: z.coerce.number().optional().default(1440),
+  /** How often to run abandoned cart job. Default "2 minutes" for frequent checks. */
+  ABANDONED_CART_CHECK_INTERVAL: z.string().optional().default("2 minutes"),
+  /** Send test email to this address 2 min after startup (for debugging). Set to enable. */
+  ABANDONED_CART_TEST_EMAIL: z.string().email().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
