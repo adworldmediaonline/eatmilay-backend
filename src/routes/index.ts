@@ -16,6 +16,7 @@ import * as storeProductsHandlers from "./store-products.js";
 import * as storeProductCategoriesHandlers from "./store-product-categories.js";
 import * as storeProductCollectionsHandlers from "./store-product-collections.js";
 import * as storeOrdersHandlers from "./store-orders.js";
+import * as storeUserOrdersHandlers from "./store-user-orders.js";
 import * as storeDiscountsHandlers from "./store-discounts.js";
 import * as storeShippingHandlers from "./store-shipping.js";
 import * as storePaymentsHandlers from "./store-payments.js";
@@ -191,6 +192,12 @@ export function registerRoutes(app: import("express").Application): void {
   );
   app.post("/api/store/orders", (req, res) =>
     storeOrdersHandlers.createStoreOrder(req, res)
+  );
+  app.get("/api/store/user/orders", requireSession, (req, res) =>
+    storeUserOrdersHandlers.listUserOrders(req as AuthenticatedRequest, res)
+  );
+  app.get("/api/store/user/orders/by-number/:orderNumber", requireSession, (req, res) =>
+    storeUserOrdersHandlers.getUserOrderByNumber(req as AuthenticatedRequest, res)
   );
   app.get("/api/store/shipping/rates", (req, res) =>
     storeShippingHandlers.getShippingRates(req, res)
