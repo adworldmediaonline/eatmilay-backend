@@ -199,4 +199,7 @@ export function registerRoutes(app: import("express").Application): void {
   app.post("/api/store/discounts/validate", (req, res) =>
     storeDiscountsHandlers.validateStoreDiscount(req, res)
   );
+  app.post("/api/store/discounts/available", (req, res) =>
+    storeDiscountsHandlers.getAvailableOffers(req, res)
+  );
 }
