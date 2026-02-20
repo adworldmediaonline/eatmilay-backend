@@ -12,10 +12,17 @@ export type ValidateDiscountResult =
   | { valid: true; discountAmount: number }
   | { valid: false; message: string };
 
+export type ValidateDiscountOptions = {
+  customerEmail?: string | null;
+  customerReferralCode?: string | null;
+  itemCategoryIds?: Record<string, string | null>;
+};
+
 export async function validateDiscountForOrder(
   code: string,
   subtotal: number,
-  items: ValidateDiscountItem[]
+  items: ValidateDiscountItem[],
+  options?: ValidateDiscountOptions
 ): Promise<ValidateDiscountResult> {
   const trimmed = code?.trim();
   if (!trimmed) {
@@ -70,6 +77,38 @@ export async function validateDiscountForOrder(
     };
   }
 
+  const firstOrderOnly = (discount.firstOrderOnly as boolean | undefined) ?? false;
+  if (firstOrderOnly) {
+    const customerEmail = options?.customerEmail?.trim();
+    if (!customerEmail) {
+      return {
+        valid: false,
+        message: "Enter your email to use this first-order offer",
+      };
+    }
+    const orderColl = db.collection("order");
+    const existingOrder = await orderColl.findOne({
+      customerEmail: { $regex: new RegExp(`^${customerEmail.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") },
+    });
+    if (existingOrder) {
+      return {
+        valid: false,
+        message: "This offer is for first-time customers only",
+      };
+    }
+  }
+
+  const referralCode = discount.referralCode as string | null | undefined;
+  if (referralCode && referralCode.trim()) {
+    const customerRef = options?.customerReferralCode?.trim();
+    if (!customerRef || customerRef.toUpperCase() !== referralCode.trim().toUpperCase()) {
+      return {
+        valid: false,
+        message: "This offer requires a referral link",
+      };
+    }
+  }
+
   const minOrderAmount = discount.minOrderAmount as number | null | undefined;
   if (minOrderAmount != null && minOrderAmount > 0 && subtotal < minOrderAmount) {
     const gap = Math.ceil(minOrderAmount - subtotal);
@@ -80,6 +119,7 @@ export async function validateDiscountForOrder(
   }
 
   const productIds = (discount.productIds as string[] | undefined) ?? [];
+  const categoryIds = (discount.categoryIds as string[] | undefined) ?? [];
   const discountType = discount.type as "percentage" | "fixed";
   const value = (discount.value as number) ?? 0;
 
@@ -87,6 +127,13 @@ export async function validateDiscountForOrder(
   if (productIds.length > 0) {
     applicableSubtotal = items
       .filter((item) => productIds.includes(item.productId))
+      .reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
+  } else if (categoryIds.length > 0 && options?.itemCategoryIds) {
+    applicableSubtotal = items
+      .filter((item) => {
+        const catId = options.itemCategoryIds?.[item.productId];
+        return catId && categoryIds.includes(catId);
+      })
       .reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
   }
 

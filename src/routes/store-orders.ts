@@ -1,4 +1,5 @@
 import type { Request, Response } from "express";
+import { ObjectId } from "mongodb";
 import { getDb } from "../db/mongodb.js";
 import { getNextOrderNumber } from "../lib/order-number.js";
 import { createOrderSchema } from "../lib/validations/order.js";
@@ -28,6 +29,7 @@ export async function createStoreOrder(req: Request, res: Response): Promise<voi
     total,
     currency,
     couponCode,
+    customerReferralCode,
     notes,
     shippingAddress,
     paymentMethod,
@@ -39,16 +41,42 @@ export async function createStoreOrder(req: Request, res: Response): Promise<voi
 
   let discountAmount = clientDiscountAmount ?? 0;
 
+  const db = getDb();
   if (couponCode?.trim() && clientDiscountAmount != null && clientDiscountAmount > 0) {
     const validationItems = items.map((i) => ({
       productId: i.productId,
       quantity: i.quantity,
       unitPrice: i.unitPrice,
     }));
+    const productIds = items.map((i) => i.productId).filter(Boolean);
+    let itemCategoryIds: Record<string, string | null> | undefined;
+    if (productIds.length > 0) {
+      const objectIds = productIds
+        .filter((id) => ObjectId.isValid(id))
+        .map((id) => new ObjectId(id));
+      const products =
+        objectIds.length > 0
+          ? await db
+              .collection("product")
+              .find({ _id: { $in: objectIds } })
+              .project({ _id: 1, categoryId: 1 })
+              .toArray()
+          : [];
+      itemCategoryIds = {};
+      for (const p of products) {
+        const id = p._id.toString();
+        itemCategoryIds[id] = (p.categoryId as string) ?? null;
+      }
+    }
     const result = await validateDiscountForOrder(
       couponCode,
       subtotal,
-      validationItems
+      validationItems,
+      {
+        customerEmail: customerEmail ?? undefined,
+        customerReferralCode: customerReferralCode ?? undefined,
+        itemCategoryIds,
+      }
     );
     if (!result.valid) {
       res.status(400).json({
@@ -60,7 +88,6 @@ export async function createStoreOrder(req: Request, res: Response): Promise<voi
     discountAmount = result.discountAmount;
   }
 
-  const db = getDb();
   const orderNumber = await getNextOrderNumber(db);
 
   const totalAmount =

@@ -204,8 +204,17 @@ export function registerRoutes(app: import("express").Application): void {
   app.post("/api/store/discounts/available", (req, res) =>
     storeDiscountsHandlers.getAvailableOffers(req, res)
   );
+  app.get("/api/store/discounts/featured", (req, res) =>
+    storeDiscountsHandlers.getFeaturedOffer(req, res)
+  );
+  app.post("/api/store/discounts/for-products", (req, res) =>
+    storeDiscountsHandlers.getDiscountsForProducts(req, res)
+  );
   app.get("/api/store/settings/coupon", (req, res) =>
     storeSettingsHandlers.getCouponSettings(req, res)
+  );
+  app.get("/api/store/settings/shipping", (req, res) =>
+    storeSettingsHandlers.getShippingSettings(req, res)
   );
 
   app.use("/api/admin/settings", requireSession, requireAdmin);
@@ -214,5 +223,11 @@ export function registerRoutes(app: import("express").Application): void {
   );
   app.patch("/api/admin/settings/coupon", (req, res) =>
     adminSettingsHandlers.updateAdminCouponSettings(req as AuthenticatedRequest, res)
+  );
+  app.get("/api/admin/settings/shipping", (req, res) =>
+    adminSettingsHandlers.getAdminShippingSettings(req as AuthenticatedRequest, res)
+  );
+  app.patch("/api/admin/settings/shipping", (req, res) =>
+    adminSettingsHandlers.updateAdminShippingSettings(req as AuthenticatedRequest, res)
   );
 }

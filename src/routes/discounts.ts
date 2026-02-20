@@ -13,11 +13,14 @@ const discountBaseSchema = z.object({
   description: z.string().max(200).optional().nullable(),
   allowAutoApply: z.boolean().optional().default(true),
   productIds: z.array(z.string()).optional(),
+  categoryIds: z.array(z.string()).optional(),
   minOrderAmount: z.number().min(0).optional().nullable(),
   maxUsage: z.number().int().min(0).optional().nullable(),
   startsAt: z.union([z.string(), z.date()]).optional().nullable(),
   expiresAt: z.union([z.string(), z.date()]).optional().nullable(),
   status: z.enum(["active", "disabled", "scheduled"]).default("active"),
+  firstOrderOnly: z.boolean().optional().default(false),
+  referralCode: z.string().max(50).optional().nullable(),
 });
 
 const createSchema = discountBaseSchema.refine(
@@ -121,7 +124,10 @@ export async function listDiscounts(
         description: r.description ?? null,
         allowAutoApply: r.allowAutoApply ?? true,
         productIds: r.productIds ?? [],
+        categoryIds: r.categoryIds ?? [],
         minOrderAmount: r.minOrderAmount ?? null,
+        firstOrderOnly: r.firstOrderOnly ?? false,
+        referralCode: r.referralCode ?? null,
         maxUsage: r.maxUsage ?? null,
         usedCount: r.usedCount ?? 0,
         startsAt: r.startsAt ?? null,
@@ -177,7 +183,10 @@ export async function getDiscount(
     description: item.description ?? null,
     allowAutoApply: item.allowAutoApply ?? true,
     productIds: item.productIds ?? [],
+    categoryIds: item.categoryIds ?? [],
     minOrderAmount: item.minOrderAmount ?? null,
+    firstOrderOnly: item.firstOrderOnly ?? false,
+    referralCode: item.referralCode ?? null,
     maxUsage: item.maxUsage ?? null,
     usedCount: item.usedCount ?? 0,
     startsAt: item.startsAt ?? null,
@@ -213,6 +222,9 @@ export async function createDiscount(
   const productIds = (parsed.data.productIds ?? []).filter((id) =>
     ObjectId.isValid(id)
   );
+  const categoryIds = (parsed.data.categoryIds ?? []).filter(
+    (id): id is string => typeof id === "string" && id.trim().length > 0
+  );
   const startsAt = parsed.data.startsAt
     ? new Date(parsed.data.startsAt)
     : null;
@@ -233,12 +245,15 @@ export async function createDiscount(
     description: parsed.data.description?.trim() || null,
     allowAutoApply: parsed.data.allowAutoApply ?? true,
     productIds,
+    categoryIds,
     minOrderAmount: parsed.data.minOrderAmount ?? null,
     maxUsage: parsed.data.maxUsage ?? null,
     usedCount: 0,
     startsAt,
     expiresAt,
     status,
+    firstOrderOnly: parsed.data.firstOrderOnly ?? false,
+    referralCode: parsed.data.referralCode?.trim() || null,
     createdAt: new Date(),
     updatedAt: new Date(),
   };
@@ -291,6 +306,17 @@ export async function updateDiscount(
     update.productIds = (parsed.data.productIds ?? []).filter((pid) =>
       ObjectId.isValid(pid)
     );
+  }
+  if ("categoryIds" in parsed.data) {
+    update.categoryIds = (parsed.data.categoryIds ?? []).filter(
+      (cid): cid is string => typeof cid === "string" && cid.trim().length > 0
+    );
+  }
+  if ("firstOrderOnly" in parsed.data) {
+    update.firstOrderOnly = parsed.data.firstOrderOnly ?? false;
+  }
+  if ("referralCode" in parsed.data) {
+    update.referralCode = parsed.data.referralCode?.trim() || null;
   }
 
   if ("startsAt" in parsed.data) {
@@ -345,7 +371,10 @@ export async function updateDiscount(
     description: result.description ?? null,
     allowAutoApply: result.allowAutoApply ?? true,
     productIds: result.productIds ?? [],
+    categoryIds: result.categoryIds ?? [],
     minOrderAmount: result.minOrderAmount ?? null,
+    firstOrderOnly: result.firstOrderOnly ?? false,
+    referralCode: result.referralCode ?? null,
     maxUsage: result.maxUsage ?? null,
     usedCount: result.usedCount ?? 0,
     startsAt: result.startsAt?.toISOString() ?? null,

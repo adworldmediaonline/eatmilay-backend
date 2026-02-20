@@ -20,6 +20,7 @@ export const createOrderSchema = z.object({
   total: z.number().min(0),
   currency: z.string().max(5).default("INR"),
   couponCode: z.string().max(50).optional().nullable(),
+  customerReferralCode: z.string().max(50).optional().nullable(),
   notes: z.string().max(1000).optional().nullable(),
   shippingAddress: shippingAddressSchema,
   paymentMethod: z.enum(["razorpay", "cod"]),

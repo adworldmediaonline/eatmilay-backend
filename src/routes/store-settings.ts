@@ -3,6 +3,7 @@ import { getDb } from "../db/mongodb.js";
 
 const COLLECTION = "store_settings";
 const COUPON_DOC_ID = "coupon";
+const SHIPPING_DOC_ID = "shipping";
 
 export type CouponBehaviorSettings = {
   autoApply: boolean;
@@ -37,4 +38,25 @@ export async function getCouponSettings(
     : { ...DEFAULT_COUPON_SETTINGS };
 
   res.json(settings);
+}
+
+export type ShippingSettings = {
+  freeShippingThreshold: number | null;
+};
+
+export async function getShippingSettings(
+  _req: Request,
+  res: Response
+): Promise<void> {
+  const db = getDb();
+  const doc = await db.collection(COLLECTION).findOne({
+    key: SHIPPING_DOC_ID,
+  } as Record<string, unknown>);
+
+  const freeShippingThreshold =
+    doc?.freeShippingThreshold != null
+      ? (doc.freeShippingThreshold as number)
+      : null;
+
+  res.json({ freeShippingThreshold });
 }

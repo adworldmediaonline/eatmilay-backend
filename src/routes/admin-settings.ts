@@ -5,6 +5,7 @@ import type { AuthenticatedRequest } from "../middleware/require-session.js";
 
 const COLLECTION = "store_settings";
 const COUPON_DOC_ID = "coupon";
+const SHIPPING_DOC_ID = "shipping";
 
 const couponSettingsSchema = z.object({
   autoApply: z.boolean(),
@@ -62,6 +63,56 @@ export async function updateAdminCouponSettings(
       $set: {
         ...parsed.data,
         key: COUPON_DOC_ID,
+        updatedAt: new Date(),
+      },
+    },
+    { upsert: true }
+  );
+
+  res.json(parsed.data);
+}
+
+const shippingSettingsSchema = z.object({
+  freeShippingThreshold: z.number().min(0).nullable(),
+});
+
+export async function getAdminShippingSettings(
+  req: AuthenticatedRequest,
+  res: Response
+): Promise<void> {
+  const db = getDb();
+  const doc = await db.collection(COLLECTION).findOne({
+    key: SHIPPING_DOC_ID,
+  } as Record<string, unknown>);
+
+  const freeShippingThreshold =
+    doc?.freeShippingThreshold != null
+      ? (doc.freeShippingThreshold as number)
+      : null;
+
+  res.json({ freeShippingThreshold });
+}
+
+export async function updateAdminShippingSettings(
+  req: AuthenticatedRequest,
+  res: Response
+): Promise<void> {
+  const parsed = shippingSettingsSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({
+      error: "Invalid input",
+      details: parsed.error.flatten(),
+    });
+    return;
+  }
+
+  const db = getDb();
+  await db.collection(COLLECTION).updateOne(
+    { key: SHIPPING_DOC_ID } as Record<string, unknown>,
+    {
+      $set: {
+        freeShippingThreshold: parsed.data.freeShippingThreshold,
+        key: SHIPPING_DOC_ID,
         updatedAt: new Date(),
       },
     },
