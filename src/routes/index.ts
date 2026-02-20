@@ -184,6 +184,9 @@ export function registerRoutes(app: import("express").Application): void {
   app.get("/api/store/product-collections/slug/:slug", (req, res) =>
     storeProductCollectionsHandlers.getStoreProductCollectionBySlug(req, res)
   );
+  app.get("/api/store/orders/track", (req, res) =>
+    storeOrdersHandlers.getOrderTracking(req, res)
+  );
   app.post("/api/store/orders", (req, res) =>
     storeOrdersHandlers.createStoreOrder(req, res)
   );

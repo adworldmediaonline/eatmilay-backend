@@ -110,3 +110,39 @@ export async function createStoreOrder(req: Request, res: Response): Promise<voi
     })),
   });
 }
+
+const TRACK_BASE_URL = "https://track.shiprocket.in/tracking";
+
+export async function getOrderTracking(req: Request, res: Response): Promise<void> {
+  const orderNumber = (req.query.orderNumber as string)?.trim();
+  const email = (req.query.email as string)?.trim();
+
+  if (!orderNumber || !email) {
+    res.status(400).json({ error: "Order number and email are required" });
+    return;
+  }
+
+  const db = getDb();
+  const order = await db.collection(COLLECTION).findOne({
+    orderNumber: { $regex: new RegExp(`^${orderNumber.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") },
+    customerEmail: { $regex: new RegExp(`^${email.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") },
+  });
+
+  if (!order) {
+    res.status(404).json({ error: "Order not found. Please check your order number and email." });
+    return;
+  }
+
+  const trackingNumber = order.trackingNumber as string | null | undefined;
+  const trackingUrl = trackingNumber ? `${TRACK_BASE_URL}/${trackingNumber}` : null;
+
+  res.json({
+    orderNumber: order.orderNumber,
+    status: order.status,
+    trackingNumber: trackingNumber ?? null,
+    trackingUrl,
+    courierName: order.courierName ?? null,
+    estimatedDelivery: order.estimatedDelivery ?? null,
+    shiprocketError: order.shiprocketError ?? null,
+  });
+}

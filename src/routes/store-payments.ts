@@ -59,8 +59,7 @@ export async function verifyPayment(req: Request, res: Response): Promise<void> 
     }
   );
 
-  void sendOrderConfirmationEmail(order as unknown as OrderDoc);
-
+  let orderForEmail = order as unknown as OrderDoc;
   try {
     const result = await createShiprocketOrder(orderId);
     if (!result.success) {
@@ -78,6 +77,8 @@ export async function verifyPayment(req: Request, res: Response): Promise<void> 
       );
     } else {
       console.log(`Shiprocket order created for ${order.orderNumber} (orderId: ${orderId})`);
+      const updated = await db.collection(COLLECTION).findOne({ _id: objectId });
+      if (updated) orderForEmail = updated as unknown as OrderDoc;
     }
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : String(err);
@@ -97,6 +98,8 @@ export async function verifyPayment(req: Request, res: Response): Promise<void> 
       }
     ).catch(() => {});
   }
+
+  void sendOrderConfirmationEmail(orderForEmail);
 
   res.json({
     success: true,

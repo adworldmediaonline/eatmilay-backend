@@ -182,6 +182,7 @@ export async function getOrder(
     shippingAddress: item.shippingAddress ?? null,
     paymentMethod: item.paymentMethod ?? null,
     paymentStatus: item.paymentStatus ?? null,
+    razorpayOrderId: item.razorpayOrderId ?? null,
     shippingAmount: item.shippingAmount ?? 0,
     courierName: item.courierName ?? null,
     estimatedDelivery: item.estimatedDelivery ?? null,

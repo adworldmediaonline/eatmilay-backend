@@ -45,5 +45,9 @@ export async function trackShiprocketOrder(
     throw new Error((errorData as { message?: string }).message ?? `Failed to track order: ${response.status}`);
   }
 
-  return response.json() as Promise<ShiprocketTrackingResponse>;
+  const data = (await response.json()) as ShiprocketTrackingResponse | ShiprocketTrackingResponse[];
+  if (Array.isArray(data) && data.length > 0) {
+    return data[0] as ShiprocketTrackingResponse;
+  }
+  return data as ShiprocketTrackingResponse;
 }
