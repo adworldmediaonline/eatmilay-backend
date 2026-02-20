@@ -45,6 +45,8 @@ export async function getUserOrderByNumber(
     status: order.status ?? "pending",
     paymentMethod: order.paymentMethod ?? null,
     paymentStatus: order.paymentStatus ?? null,
+    razorpayPaymentId: order.paymentMethod === "razorpay" ? (order.razorpayPaymentId ?? null) : null,
+    razorpayOrderId: order.paymentMethod === "razorpay" ? (order.razorpayOrderId ?? null) : null,
     subtotal: order.subtotal ?? order.total,
     discountAmount: order.discountAmount ?? 0,
     shippingAmount: order.shippingAmount ?? 0,
