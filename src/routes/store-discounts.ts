@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import { z } from "zod";
 import { getDb } from "../db/mongodb.js";
+import { validateDiscountForOrder } from "../lib/discount-validation.js";
 
 const COLLECTION = "discount";
 
@@ -30,95 +31,21 @@ export async function validateStoreDiscount(
     return;
   }
 
-  const db = getDb();
-  const code = parsed.data.code.trim().toUpperCase();
+  const result = await validateDiscountForOrder(
+    parsed.data.code,
+    parsed.data.subtotal,
+    parsed.data.items
+  );
 
-  const discount = await db.collection(COLLECTION).findOne({
-    code: { $regex: new RegExp(`^${code.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") },
-  });
-
-  if (!discount) {
-    res.json({ valid: false, message: "Invalid or expired coupon code" });
-    return;
-  }
-
-  const status = discount.status ?? "active";
-  const startsAt = discount.startsAt as Date | null | undefined;
-  const now = new Date();
-
-  if (status === "disabled") {
-    res.json({ valid: false, message: "This coupon is no longer active" });
-    return;
-  }
-
-  if (status === "scheduled") {
-    if (startsAt && new Date(startsAt) > now) {
-      res.json({ valid: false, message: "This coupon is not yet active" });
-      return;
-    }
-    // startsAt passed or null — treat as effectively active
-  }
-
-  if (startsAt && new Date(startsAt) > now) {
-    res.json({ valid: false, message: "This coupon is not yet active" });
-    return;
-  }
-
-  const expiresAt = discount.expiresAt as Date | null | undefined;
-  if (expiresAt && new Date(expiresAt) < now) {
-    res.json({ valid: false, message: "This coupon has expired" });
-    return;
-  }
-
-  const maxUsage = discount.maxUsage as number | null | undefined;
-  const usedCount = (discount.usedCount as number) ?? 0;
-  if (maxUsage != null && usedCount >= maxUsage) {
-    res.json({ valid: false, message: "This coupon has reached its usage limit" });
-    return;
-  }
-
-  const minOrderAmount = discount.minOrderAmount as number | null | undefined;
-  const subtotal = parsed.data.subtotal;
-  if (minOrderAmount != null && minOrderAmount > 0 && subtotal < minOrderAmount) {
-    const gap = Math.ceil(minOrderAmount - subtotal);
+  if (result.valid) {
     res.json({
-      valid: false,
-      message: `Min order ₹${minOrderAmount.toFixed(0)} required. Add ₹${gap} more.`,
+      valid: true,
+      discountAmount: result.discountAmount,
+      message: `You save $${result.discountAmount.toFixed(2)}`,
     });
-    return;
-  }
-
-  const productIds = (discount.productIds as string[] | undefined) ?? [];
-  const discountType = discount.type as "percentage" | "fixed";
-  const value = (discount.value as number) ?? 0;
-
-  let applicableSubtotal = subtotal;
-  if (productIds.length > 0) {
-    applicableSubtotal = parsed.data.items
-      .filter((item) => productIds.includes(item.productId))
-      .reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
-  }
-
-  if (applicableSubtotal <= 0) {
-    res.json({
-      valid: false,
-      message: "This coupon does not apply to any items in your cart",
-    });
-    return;
-  }
-
-  let discountAmount: number;
-  if (discountType === "percentage") {
-    discountAmount = Math.round((applicableSubtotal * (value / 100)) * 100) / 100;
   } else {
-    discountAmount = Math.min(value, applicableSubtotal);
+    res.json({ valid: false, message: result.message });
   }
-
-  res.json({
-    valid: true,
-    discountAmount,
-    message: `You save $${discountAmount.toFixed(2)}`,
-  });
 }
 
 const availableSchema = z.object({

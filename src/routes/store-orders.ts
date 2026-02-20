@@ -7,6 +7,7 @@ import {
   sendOrderConfirmationEmail,
   type OrderDoc,
 } from "../lib/email/send-order-confirmation.js";
+import { validateDiscountForOrder } from "../lib/discount-validation.js";
 
 const COLLECTION = "order";
 
@@ -17,16 +18,13 @@ export async function createStoreOrder(req: Request, res: Response): Promise<voi
     return;
   }
 
-  const db = getDb();
-  const orderNumber = await getNextOrderNumber(db);
-
   const {
     customerId,
     customerEmail,
     customerName,
     items,
     subtotal,
-    discountAmount,
+    discountAmount: clientDiscountAmount,
     total,
     currency,
     couponCode,
@@ -39,7 +37,36 @@ export async function createStoreOrder(req: Request, res: Response): Promise<voi
     estimatedDelivery,
   } = parsed.data;
 
-  const totalAmount = total;
+  let discountAmount = clientDiscountAmount ?? 0;
+
+  if (couponCode?.trim() && clientDiscountAmount != null && clientDiscountAmount > 0) {
+    const validationItems = items.map((i) => ({
+      productId: i.productId,
+      quantity: i.quantity,
+      unitPrice: i.unitPrice,
+    }));
+    const result = await validateDiscountForOrder(
+      couponCode,
+      subtotal,
+      validationItems
+    );
+    if (!result.valid) {
+      res.status(400).json({
+        error: "COUPON_INVALID",
+        message: result.message,
+      });
+      return;
+    }
+    discountAmount = result.discountAmount;
+  }
+
+  const db = getDb();
+  const orderNumber = await getNextOrderNumber(db);
+
+  const totalAmount =
+    discountAmount !== (clientDiscountAmount ?? 0)
+      ? Math.max(0, subtotal - discountAmount + (shippingAmount ?? 0))
+      : total;
   let razorpayOrderId: string | null = null;
   let paymentStatus: "pending" | "completed" | "failed" = "pending";
   let status: "pending" | "paid" | "confirmed" | "processing" | "shipped" | "delivered" | "cancelled" = "pending";
