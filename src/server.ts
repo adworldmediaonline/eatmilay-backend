@@ -9,6 +9,7 @@ import {
   ensureCollectionIndexes,
   ensureDiscountIndexes,
   ensureCartIndexes,
+  ensureReviewIndexes,
   ensureUserSchema,
 } from "./db/init-indexes.js";
 import { auth } from "./auth/auth.js";
@@ -56,6 +57,7 @@ async function start(): Promise<void> {
     ensureCollectionIndexes(),
     ensureDiscountIndexes(),
     ensureCartIndexes(),
+    ensureReviewIndexes(),
   ]);
   await ensureUserSchema();
   configureCloudinary();

@@ -79,6 +79,24 @@ export async function ensureCartIndexes(): Promise<void> {
   ]);
 }
 
+export async function ensureReviewIndexes(): Promise<void> {
+  const db = getDb();
+  const coll = db.collection("review");
+
+  await Promise.all([
+    coll.createIndex({ productId: 1, status: 1, createdAt: -1 }),
+    coll.createIndex(
+      { customerId: 1, productId: 1 },
+      { unique: true, partialFilterExpression: { type: "product" } }
+    ),
+    coll.createIndex(
+      { orderId: 1 },
+      { unique: true, partialFilterExpression: { type: "order" } }
+    ),
+    coll.createIndex({ type: 1, status: 1, createdAt: -1 }),
+  ]);
+}
+
 /**
  * Ensure user collection has isAnonymous field for Better Auth anonymous plugin.
  * Backfill existing users with isAnonymous: false; new anonymous users get true from the plugin.
