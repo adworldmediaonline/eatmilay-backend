@@ -80,9 +80,10 @@ export async function validateStoreDiscount(
   const minOrderAmount = discount.minOrderAmount as number | null | undefined;
   const subtotal = parsed.data.subtotal;
   if (minOrderAmount != null && minOrderAmount > 0 && subtotal < minOrderAmount) {
+    const gap = Math.ceil(minOrderAmount - subtotal);
     res.json({
       valid: false,
-      message: `Minimum order amount of $${minOrderAmount.toFixed(2)} required`,
+      message: `Min order ₹${minOrderAmount.toFixed(0)} required. Add ₹${gap} more.`,
     });
     return;
   }
@@ -181,6 +182,12 @@ export async function getAvailableOffers(
     minOrderAmount: number | null;
     discountAmount: number;
     description: string;
+    allowAutoApply: boolean;
+    createdAt?: string | null;
+    locked?: boolean;
+    gapAmount?: number;
+    expiresAt?: string | null;
+    usesLeft?: number | null;
   }> = [];
 
   const currency = "INR";
@@ -200,8 +207,6 @@ export async function getAvailableOffers(
     if (startsAt && new Date(startsAt) > now) continue;
     if (expiresAt && new Date(expiresAt) < now) continue;
     if (maxUsage != null && usedCount >= maxUsage) continue;
-    if (minOrderAmount != null && minOrderAmount > 0 && subtotal < minOrderAmount)
-      continue;
 
     let applicableSubtotal = subtotal;
     if (productIds.length > 0) {
@@ -211,13 +216,41 @@ export async function getAvailableOffers(
     }
     if (applicableSubtotal <= 0) continue;
 
+    const isLocked =
+      minOrderAmount != null &&
+      minOrderAmount > 0 &&
+      subtotal < minOrderAmount;
+    const gapAmount = isLocked ? minOrderAmount - subtotal : undefined;
+
     let discountAmount: number;
     if (discountType === "percentage") {
-      discountAmount =
-        Math.round((applicableSubtotal * (value / 100)) * 100) / 100;
+      discountAmount = isLocked
+        ? Math.round((minOrderAmount * (value / 100)) * 100) / 100
+        : Math.round((applicableSubtotal * (value / 100)) * 100) / 100;
     } else {
-      discountAmount = Math.min(value, applicableSubtotal);
+      discountAmount = isLocked
+        ? Math.min(value, minOrderAmount)
+        : Math.min(value, applicableSubtotal);
     }
+
+    const expiresAtStr =
+      expiresAt != null ? new Date(expiresAt).toISOString() : null;
+    const usesLeftVal =
+      maxUsage != null ? Math.max(0, maxUsage - usedCount) : null;
+
+    const customDesc = (discount.description as string | undefined)?.trim();
+    const description =
+      customDesc ||
+      buildOfferDescription(
+        discountType,
+        value,
+        minOrderAmount ?? null,
+        currency
+      );
+
+    const allowAutoApply = (discount.allowAutoApply as boolean | undefined) ?? true;
+    const createdAtStr =
+      discount.createdAt != null ? new Date(discount.createdAt).toISOString() : null;
 
     offers.push({
       code: (discount.code as string).trim().toUpperCase(),
@@ -225,12 +258,14 @@ export async function getAvailableOffers(
       value,
       minOrderAmount: minOrderAmount ?? null,
       discountAmount,
-      description: buildOfferDescription(
-        discountType,
-        value,
-        minOrderAmount ?? null,
-        currency
-      ),
+      description,
+      allowAutoApply,
+      createdAt: createdAtStr,
+      ...(isLocked && gapAmount != null
+        ? { locked: true, gapAmount }
+        : {}),
+      expiresAt: expiresAtStr,
+      usesLeft: usesLeftVal,
     });
   }
 

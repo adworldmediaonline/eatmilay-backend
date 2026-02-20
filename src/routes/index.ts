@@ -20,6 +20,8 @@ import * as storeDiscountsHandlers from "./store-discounts.js";
 import * as storeShippingHandlers from "./store-shipping.js";
 import * as storePaymentsHandlers from "./store-payments.js";
 import * as storeShiprocketHandlers from "./store-shiprocket.js";
+import * as storeSettingsHandlers from "./store-settings.js";
+import * as adminSettingsHandlers from "./admin-settings.js";
 
 export function registerRoutes(app: import("express").Application): void {
   app.get("/api/me", async (req: Request, res: Response) => {
@@ -201,5 +203,16 @@ export function registerRoutes(app: import("express").Application): void {
   );
   app.post("/api/store/discounts/available", (req, res) =>
     storeDiscountsHandlers.getAvailableOffers(req, res)
+  );
+  app.get("/api/store/settings/coupon", (req, res) =>
+    storeSettingsHandlers.getCouponSettings(req, res)
+  );
+
+  app.use("/api/admin/settings", requireSession, requireAdmin);
+  app.get("/api/admin/settings/coupon", (req, res) =>
+    adminSettingsHandlers.getAdminCouponSettings(req as AuthenticatedRequest, res)
+  );
+  app.patch("/api/admin/settings/coupon", (req, res) =>
+    adminSettingsHandlers.updateAdminCouponSettings(req as AuthenticatedRequest, res)
   );
 }
