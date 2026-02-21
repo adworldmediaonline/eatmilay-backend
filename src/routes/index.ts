@@ -187,6 +187,9 @@ export function registerRoutes(app: import("express").Application): void {
   app.get("/api/store/products", (req, res) =>
     storeProductsHandlers.listStoreProducts(req, res)
   );
+  app.get("/api/store/products/facets", (req, res) =>
+    storeProductsHandlers.getStoreProductFacets(req, res)
+  );
   app.get("/api/store/products/slug/:slug", (req, res) =>
     storeProductsHandlers.getStoreProductBySlug(req, res)
   );

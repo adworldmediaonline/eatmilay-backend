@@ -19,6 +19,8 @@ export async function ensureProductIndexes(): Promise<void> {
     coll.createIndex({ sku: 1 }),
     coll.createIndex({ status: 1, updatedAt: -1 }),
     coll.createIndex({ status: 1, categoryId: 1, updatedAt: -1 }),
+    coll.createIndex({ status: 1, price: 1 }),
+    coll.createIndex({ status: 1, tags: 1 }),
   ]);
 }
 
