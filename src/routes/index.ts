@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import { fromNodeHeaders } from "better-auth/node";
 import { auth } from "../auth/auth.js";
 import { requireSession, requireSuperAdmin, requireAdmin } from "../middleware/require-session.js";
+import { reviewSubmitLimiter } from "../middleware/review-rate-limit.js";
 import type { AuthenticatedRequest } from "../middleware/require-session.js";
 import * as rolesHandlers from "./roles.js";
 import * as userRolesHandlers from "./user-roles.js";
@@ -22,6 +23,9 @@ import * as storeShippingHandlers from "./store-shipping.js";
 import * as storePaymentsHandlers from "./store-payments.js";
 import * as storeShiprocketHandlers from "./store-shiprocket.js";
 import * as storeSettingsHandlers from "./store-settings.js";
+import * as storeCartHandlers from "./store-cart.js";
+import * as storeReviewsHandlers from "./store-reviews.js";
+import * as reviewsHandlers from "./reviews.js";
 import * as adminSettingsHandlers from "./admin-settings.js";
 
 export function registerRoutes(app: import("express").Application): void {
@@ -135,6 +139,17 @@ export function registerRoutes(app: import("express").Application): void {
     discountsHandlers.deleteDiscount(req as AuthenticatedRequest, res)
   );
 
+  app.use("/api/admin/reviews", requireSession, requireAdmin);
+  app.get("/api/admin/reviews", (req, res) =>
+    reviewsHandlers.listReviews(req as AuthenticatedRequest, res)
+  );
+  app.patch("/api/admin/reviews/:id", (req, res) =>
+    reviewsHandlers.updateReview(req as AuthenticatedRequest, res)
+  );
+  app.delete("/api/admin/reviews/:id", (req, res) =>
+    reviewsHandlers.deleteReview(req as AuthenticatedRequest, res)
+  );
+
   app.use("/api/admin/products", requireSession, requireAdmin);
   app.get("/api/admin/products", (req, res) =>
     productsHandlers.listProducts(req as AuthenticatedRequest, res)
@@ -171,6 +186,9 @@ export function registerRoutes(app: import("express").Application): void {
   // Public store API (no auth)
   app.get("/api/store/products", (req, res) =>
     storeProductsHandlers.listStoreProducts(req, res)
+  );
+  app.get("/api/store/products/facets", (req, res) =>
+    storeProductsHandlers.getStoreProductFacets(req, res)
   );
   app.get("/api/store/products/slug/:slug", (req, res) =>
     storeProductsHandlers.getStoreProductBySlug(req, res)
@@ -222,6 +240,30 @@ export function registerRoutes(app: import("express").Application): void {
   );
   app.get("/api/store/settings/shipping", (req, res) =>
     storeSettingsHandlers.getShippingSettings(req, res)
+  );
+  app.put("/api/store/cart", requireSession, (req, res) =>
+    storeCartHandlers.putCart(req as AuthenticatedRequest, res)
+  );
+  app.patch("/api/store/cart/reminder-email", requireSession, (req, res) =>
+    storeCartHandlers.patchReminderEmail(req as AuthenticatedRequest, res)
+  );
+  app.get("/api/store/reviews/product/:productId", (req, res) =>
+    storeReviewsHandlers.listProductReviews(req, res)
+  );
+  app.post("/api/store/reviews/product", requireSession, reviewSubmitLimiter, (req, res) =>
+    storeReviewsHandlers.submitProductReview(req as AuthenticatedRequest, res)
+  );
+  app.post("/api/store/reviews/order", requireSession, reviewSubmitLimiter, (req, res) =>
+    storeReviewsHandlers.submitOrderReview(req as AuthenticatedRequest, res)
+  );
+  app.get("/api/store/reviews/order/:orderId", requireSession, (req, res) =>
+    storeReviewsHandlers.getOrderReview(req as AuthenticatedRequest, res)
+  );
+  app.get("/api/store/reviews/can-review-product/:productId", requireSession, (req, res) =>
+    storeReviewsHandlers.canReviewProduct(req as AuthenticatedRequest, res)
+  );
+  app.get("/api/store/reviews/can-review-order/:orderNumber", requireSession, (req, res) =>
+    storeReviewsHandlers.canReviewOrder(req as AuthenticatedRequest, res)
   );
 
   app.use("/api/admin/settings", requireSession, requireAdmin);

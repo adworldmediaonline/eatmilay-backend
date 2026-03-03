@@ -144,6 +144,10 @@ export async function createStoreOrder(req: Request, res: Response): Promise<voi
   const result = await db.collection(COLLECTION).insertOne(doc);
   const id = result.insertedId.toString();
 
+  if (customerId) {
+    await db.collection("cart").deleteMany({ customerId });
+  }
+
   if (paymentMethod === "cod" && status === "paid") {
     void sendOrderConfirmationEmail(doc as unknown as OrderDoc);
   }

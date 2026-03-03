@@ -16,7 +16,7 @@ export async function sendEmail(params: SendEmailParams): Promise<void> {
     return;
   }
 
-  void transporter.sendMail({
+  await transporter.sendMail({
     from: env.EMAIL_FROM,
     to,
     subject,
