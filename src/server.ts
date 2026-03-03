@@ -52,10 +52,7 @@ registerRoutes(app);
 
 app.use(createErrorHandler(allowedOrigins));
 
-/** Exported for serverless platforms (e.g. Vercel, AWS Lambda) that expect a handler or app export */
-export { app };
-
-async function start(): Promise<void> {
+async function initDbAndServices(): Promise<void> {
   await connectMongo();
   await Promise.all([
     ensureProductIndexes(),
@@ -69,6 +66,10 @@ async function start(): Promise<void> {
   await ensureUserSchema();
   configureCloudinary();
   await syncDiscountStatuses();
+}
+
+async function start(): Promise<void> {
+  await initDbAndServices();
   await startAgenda();
   app.listen(port, () => {
     console.log(`Server running at http://localhost:${port}`);
@@ -76,15 +77,23 @@ async function start(): Promise<void> {
   });
 }
 
-const shutdown = async () => {
-  await stopAgenda();
-  process.exit(0);
-};
+const isVercel = process.env.VERCEL === "1";
 
-process.on("SIGTERM", shutdown);
-process.on("SIGINT", shutdown);
+if (isVercel) {
+  await initDbAndServices();
+  // Agenda (background jobs) is skipped on Vercel - serverless doesn't support long-running processes.
+  // Use Vercel Cron + API routes if you need scheduled tasks.
+} else {
+  const shutdown = async () => {
+    await stopAgenda();
+    process.exit(0);
+  };
+  process.on("SIGTERM", shutdown);
+  process.on("SIGINT", shutdown);
+  start().catch((err) => {
+    console.error("Failed to start server:", err);
+    process.exit(1);
+  });
+}
 
-start().catch((err) => {
-  console.error("Failed to start server:", err);
-  process.exit(1);
-});
+export default app;
