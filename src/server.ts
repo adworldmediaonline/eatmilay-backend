@@ -1,3 +1,4 @@
+import "express-async-errors";
 import express from "express";
 import cors from "cors";
 import { toNodeHandler } from "better-auth/node";
@@ -14,7 +15,7 @@ import {
 } from "./db/init-indexes.js";
 import { auth } from "./auth/auth.js";
 import { env } from "./config/env.js";
-import { errorHandler } from "./middleware/error.js";
+import { createErrorHandler } from "./middleware/error.js";
 import { registerRoutes } from "./routes/index.js";
 import { configureCloudinary } from "./routes/upload.js";
 import { syncDiscountStatuses } from "./jobs/sync-discount-statuses.js";
@@ -24,11 +25,13 @@ const app = express();
 const port = env.PORT;
 
 const allowedOrigins = [
-  env.FRONTEND_URL,
-  ...(env.FRONTEND_USER_URL ? [env.FRONTEND_USER_URL] : []),
-  ...(env.TRUSTED_ORIGINS
-    ? env.TRUSTED_ORIGINS.split(",").map((o) => o.trim()).filter(Boolean)
-    : []),
+  ...new Set([
+    env.FRONTEND_URL,
+    ...(env.FRONTEND_USER_URL ? [env.FRONTEND_USER_URL] : []),
+    ...(env.TRUSTED_ORIGINS
+      ? env.TRUSTED_ORIGINS.split(",").map((o) => o.trim()).filter(Boolean)
+      : []),
+  ]),
 ];
 
 app.use(
@@ -37,6 +40,7 @@ app.use(
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept"],
     credentials: true,
+    optionsSuccessStatus: 200,
   })
 );
 
@@ -46,7 +50,7 @@ app.use(express.json());
 
 registerRoutes(app);
 
-app.use(errorHandler);
+app.use(createErrorHandler(allowedOrigins));
 
 async function start(): Promise<void> {
   await connectMongo();
