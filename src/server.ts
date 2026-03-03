@@ -52,6 +52,9 @@ registerRoutes(app);
 
 app.use(createErrorHandler(allowedOrigins));
 
+/** Exported for serverless platforms (e.g. Vercel, AWS Lambda) that expect a handler or app export */
+export { app };
+
 async function start(): Promise<void> {
   await connectMongo();
   await Promise.all([
